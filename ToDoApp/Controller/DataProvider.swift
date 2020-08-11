@@ -1,0 +1,96 @@
+//
+//  DataProvider.swift
+//  ToDoApp
+//
+//  Created by Michael Tseitlin on 06.08.2020.
+//  Copyright © 2020 Michael Tseitlin. All rights reserved.
+//
+
+import UIKit
+
+enum Section: Int, CaseIterable {
+    case toDo
+    case done
+}
+
+class DataProvider: NSObject {
+    var taskManager: TaskManager?
+}
+
+extension DataProvider: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, titleForDeleteConfirmationButtonForRowAt indexPath: IndexPath) -> String? {
+        guard let section = Section(rawValue: indexPath.section) else { fatalError() }
+        switch section {
+        case .toDo: return "Done"
+        case .done: return "Undone"
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        guard let section = Section(rawValue: indexPath.section) else { fatalError() }
+        switch section {
+        case .toDo:
+            let task = taskManager?.task(at: indexPath.row)
+            NotificationCenter.default.post(name: Notification.Name(rawValue: "DidSelectRowNotification"), object: self, userInfo: ["task": task])
+        case .done: break
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        guard let section = Section(rawValue: section) else { fatalError() }
+        switch section {
+        case .toDo: return "To do"
+        case .done: return "Done"
+        }
+    }
+
+}
+
+extension DataProvider: UITableViewDataSource {
+    func numberOfSections(in tableView: UITableView) -> Int {
+        return Section.allCases.count
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        guard let section = Section(rawValue: section) else { fatalError() }
+        guard let taskManager = taskManager else { return 0 }
+        switch section {
+        case .toDo: return taskManager.tasksCount
+        case .done: return taskManager.doneTasksCount
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: String(describing: TaskCell.self), for: indexPath) as! TaskCell
+        
+        guard let section = Section(rawValue: indexPath.section) else { fatalError() }
+        guard let taskManager = taskManager else { fatalError() }
+        
+        let task: Task
+        
+        switch section {
+        case .toDo:
+            task = taskManager.task(at: indexPath.row)
+        case .done:
+            task = taskManager.doneTask(at: indexPath.row)
+        }
+        
+        cell.configure(withTask: task, done: task.isDone)
+        
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        guard let section = Section(rawValue: indexPath.section),
+            let taskManager = taskManager else { fatalError() }
+        
+        switch section {
+        case .toDo:
+            taskManager.checkTask(at: indexPath.row)
+        case .done:
+            taskManager.uncheckTask(at: indexPath.row)
+        }
+        
+        tableView.reloadData()
+    }
+}
